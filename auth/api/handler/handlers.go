@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,5 +25,5 @@ func Routes() *gin.Engine {
 }
 
 func HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "OK"})
+	c.JSON(http.StatusOK, gin.H{"message": "OK", "name": os.Getenv("NAME")})
 }
