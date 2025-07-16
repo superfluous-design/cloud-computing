@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +17,12 @@ func Routes() *gin.Engine {
 	{
 		api.POST("/register", Register)
 		api.POST("/login", Login)
+		api.GET("/health", HealthCheck)
 	}
 
 	return r
+}
+
+func HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "OK"})
 }

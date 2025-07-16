@@ -2,17 +2,34 @@ version: "3.8"
 
 services:
   database:
-    image: 'postgres:alpine3.22'
+    image: "postgres:alpine3.22"
     restart: always
     ports:
       - 5432:5432
     environment:
-      POSTGRES_USER: 'administrator'
-      POSTGRES_PASSWORD: 'qixqug-boqjim-3zeqvE'
-      POSTGRES_DB: 'default'
+      POSTGRES_USER: "administrator"
+      POSTGRES_PASSWORD: "qixqug-boqjim-3zeqvE"
+      POSTGRES_DB: "default"
     volumes:
       - pg-db:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
+
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: "administrator"
+      DB_PASSWORD: "qixqug-boqjim-3zeqvE"
+      DB_NAME: "default"
+      DB_SSLMODE: "disable"
+    depends_on:
+      - database
+    restart: unless-stopped
 
 volumes:
   pg-db:
