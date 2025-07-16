@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS folders (
         author_id INT REFERENCES users(user_id)
 );
 
-CREATE TYPE IF NOT EXISTS BMTYPE AS ENUM ('URL', 'Text', 'Color');
+CREATE TYPE BMTYPE AS ENUM ('URL', 'Text', 'Color');
 
 CREATE TABLE IF NOT EXISTS bookmarks (
         bookmark_id SERIAL PRIMARY KEY,
