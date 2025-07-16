@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  database:
+    image: 'postgres:alpine3.22'
+    environment:
+      POSTGRES_USER: 'administrator'
+      POSTGRES_PASSWORD: 'qixqug-boqjim-3zeqvE'
+      POSTGRES_DB: 'default'
+    volumes:
+      - pg-db:/var/lib/postgresql/data
+
+volumes:
+  pg-db:
