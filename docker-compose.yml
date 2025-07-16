@@ -3,12 +3,16 @@ version: "3.8"
 services:
   database:
     image: 'postgres:alpine3.22'
+    restart: always
+    ports:
+      - 5432:5432
     environment:
       POSTGRES_USER: 'administrator'
       POSTGRES_PASSWORD: 'qixqug-boqjim-3zeqvE'
       POSTGRES_DB: 'default'
     volumes:
       - pg-db:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
 
 volumes:
   pg-db:
