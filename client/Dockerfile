@@ -1,20 +1,20 @@
-# Build stage
-FROM oven/bun:1 AS builder
+# Build stage - Use Node.js for building to avoid Bun/Vite compatibility issues
+FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lock ./
+COPY package.json ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+# Install dependencies using npm
+RUN npm install
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN bun run build
+# Build the application using npm
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine

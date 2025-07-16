@@ -8,10 +8,11 @@ README.md
 *.log
 npm-debug.log*
 bun-debug.log*
+bun.lock
 .DS_Store
 coverage
 .nyc_output
 .env.local
 .env.development.local
 .env.test.local
-.env.production.local 
+.env.production.local
