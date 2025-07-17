@@ -86,6 +86,7 @@ services:
       DATABASE_URL: "postgresql://administrator:qixqug-boqjim-3zeqvE@database:5432/default?sslmode=disable"
       ELECTRIC_PORT: "3000"
       ELECTRIC_STORAGE_DIR: "/var/lib/electric/persistent"
+      ELECTRIC_INSECURE: "true"
     ports:
       - "3000:3000"
     volumes:
