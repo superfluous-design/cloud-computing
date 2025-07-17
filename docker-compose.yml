@@ -80,6 +80,35 @@ services:
       retries: 3
       start_period: 40s
 
+  electric:
+    image: electricsql/electric:latest
+    environment:
+      DATABASE_URL: "postgresql://administrator:qixqug-boqjim-3zeqvE@database:5432/default?sslmode=disable"
+      ELECTRIC_PORT: "3000"
+      ELECTRIC_STORAGE_DIR: "/var/lib/electric/persistent"
+    ports:
+      - "3000:3000"
+    volumes:
+      - electric-storage:/var/lib/electric/persistent
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/v1/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   nginx:
     image: nginx:alpine
     ports:
@@ -110,3 +139,4 @@ services:
 
 volumes:
   pg-db:
+  electric-storage:
