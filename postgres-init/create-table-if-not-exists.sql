@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS folders (
 CREATE TYPE BMTYPE AS ENUM ('URL', 'Text', 'Color');
 
 CREATE TABLE IF NOT EXISTS bookmarks (
-        bookmark_id SERIAL PRIMARY KEY,
+        bookmark_id VARCHAR(255) PRIMARY KEY,
         type BMTYPE NOT NULL,
         content VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

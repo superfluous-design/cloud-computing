@@ -106,6 +106,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  express-api:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    environment:
+      PORT: "3001"
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: "administrator"
+      DB_PASSWORD: "qixqug-boqjim-3zeqvE"
+      DB_NAME: "default"
+      ELECTRIC_URL: "http://localhost:3000"
+      AUTH_TOKEN: "insecure-token-change-me"
+    ports:
+      - "3001:3001"
+    depends_on:
+      database:
+        condition: service_healthy
+      electric:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
       test:
         [
           "CMD",
@@ -113,7 +141,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:3000/v1/health",
+          "http://localhost:3001/api/health",
         ]
       interval: 30s
       timeout: 10s
@@ -131,6 +159,8 @@ services:
       auth1:
         condition: service_healthy
       auth2:
+        condition: service_healthy
+      express-api:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
