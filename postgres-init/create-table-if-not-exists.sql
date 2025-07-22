@@ -30,3 +30,24 @@ CREATE TABLE IF NOT EXISTS logs (
         content VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create LiveStore events table
+CREATE TABLE IF NOT EXISTS livestore_events (
+        id SERIAL PRIMARY KEY,
+        store_id VARCHAR(255),
+        event_name VARCHAR(255),
+        event_data JSONB,
+        event_number VARCHAR(255),
+        client_id VARCHAR(255),
+        session_id VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default user and folder for testing
+INSERT INTO users (user_id, email, password) 
+VALUES (1, 'test@example.com', 'password123') 
+ON CONFLICT (user_id) DO NOTHING;
+
+INSERT INTO folders (folder_id, name, color, author_id) 
+VALUES (1, 'Default Folder', '#3B82F6', 1) 
+ON CONFLICT (folder_id) DO NOTHING;

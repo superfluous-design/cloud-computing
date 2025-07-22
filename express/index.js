@@ -1,23 +1,25 @@
 import express from "express";
-import { Pool } from "pg";
+import cors from "cors";
+import { Schema } from "@livestore/livestore";
+import { makeElectricUrl } from "@livestore/sync-electric";
+
+import { makeDb } from "./db.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Electric service configuration
+const electricHost = process.env.ELECTRIC_URL || "http://localhost:3000";
+
+// Enable CORS for all routes
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:3000"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
-
-// Electric service URL (for reading data via sync)
-const ELECTRIC_URL = process.env.ELECTRIC_URL || "http://localhost:3000";
-
-// Direct database connection (for writes)
-const dbPool = new Pool({
-  host: process.env.DB_HOST || "database",
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || "default",
-  user: process.env.DB_USER || "administrator",
-  password: process.env.DB_PASSWORD || "qixqug-boqjim-3zeqvE",
-  ssl: false,
-});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
@@ -30,36 +32,41 @@ app.get("/api/health", (req, res) => {
 // Electric proxy endpoint for LiveStore sync
 app.get("/api/electric", async (req, res) => {
   try {
-    // Extract query parameters from the request
-    const queryParams = new URLSearchParams(req.query);
+    const searchParams = new URLSearchParams(req.query);
+    const { url, storeId, needsInit, payload } = makeElectricUrl({
+      electricHost,
+      searchParams,
+      // You can also provide a sourceId and sourceSecret for Electric Cloud
+      // sourceId: 'your-source-id',
+      // sourceSecret: 'your-source-secret',
+      apiSecret: "change-me-electric-secret",
+    });
 
-    // Basic auth check (implement proper auth in production)
-    const authToken = req.headers.authorization || req.query.auth;
-    if (authToken !== (process.env.AUTH_TOKEN || "insecure-token-change-me")) {
+    if (payload.authToken !== "insecure-token-change-me") {
       return res.status(401).json({ error: "Invalid auth token" });
     }
 
-    // Proxy the request to Electric
-    const electricUrl = `${ELECTRIC_URL}/v1/shape?${queryParams.toString()}`;
-    console.log("Proxying to Electric:", electricUrl);
-
-    const response = await fetch(electricUrl);
-
-    if (!response.ok) {
-      throw new Error(`Electric API error: ${response.status}`);
+    // Here we initialize the database if it doesn't exist yet. You might not need this if you
+    // already have the necessary tables created in the database.
+    if (needsInit) {
+      const db = makeDb(storeId);
+      await db.migrate();
+      await db.disconnect();
     }
 
-    // Forward response headers
-    response.headers.forEach((value, key) => {
-      if (!key.startsWith("content-encoding")) {
-        // Avoid double encoding
-        res.setHeader(key, value);
-      }
+    // We are simply proxying the request to the Electric server but you could implement
+    // any custom logic here, e.g. auth, rate limiting, etc.
+    const electricResponse = await fetch(url);
+
+    // Forward the response from Electric
+    const data = await electricResponse.text();
+
+    // Copy headers from Electric response
+    electricResponse.headers.forEach((value, key) => {
+      res.setHeader(key, value);
     });
 
-    // Stream the response
-    const data = await response.text();
-    res.send(data);
+    res.status(electricResponse.status).send(data);
   } catch (error) {
     console.error("Error proxying to Electric:", error);
     res.status(500).json({
@@ -72,68 +79,32 @@ app.get("/api/electric", async (req, res) => {
 // LiveStore event processing endpoint
 app.post("/api/electric", async (req, res) => {
   try {
-    console.log("Received LiveStore events:", req.body);
+    const payload = req.body;
 
-    // For LiveStore 0.3.1, we expect event-sourced data
-    // The events should be stored and then processed to update the database
-    const { events, storeId } = req.body;
+    // Define a simple schema for the push payload
+    const PushPayloadSchema = Schema.Struct({
+      storeId: Schema.String,
+      batch: Schema.Array(
+        Schema.Struct({
+          seqNum: Schema.Number,
+          parentSeqNum: Schema.Union(Schema.Number, Schema.Null),
+          name: Schema.String,
+          args: Schema.Unknown,
+          clientId: Schema.String,
+          sessionId: Schema.String,
+        })
+      ),
+    });
 
-    if (!events || !Array.isArray(events)) {
-      return res.status(400).json({
-        error: "Invalid request format. Expected events array.",
-      });
-    }
+    const parsedPayload = Schema.decodeUnknownSync(PushPayloadSchema)(payload);
 
-    // Store events in a dedicated table for LiveStore
-    const client = await dbPool.connect();
-    try {
-      await client.query("BEGIN");
+    const db = makeDb(parsedPayload.storeId);
 
-      // Create LiveStore events table if it doesn't exist
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS livestore_events (
-          id SERIAL PRIMARY KEY,
-          store_id VARCHAR(255),
-          event_name VARCHAR(255),
-          event_data JSONB,
-          event_number VARCHAR(255),
-          client_id VARCHAR(255),
-          session_id VARCHAR(255),
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        )
-      `);
+    await db.createEvents(parsedPayload.batch);
 
-      // Insert each event
-      for (const event of events) {
-        await client.query(
-          `
-          INSERT INTO livestore_events 
-          (store_id, event_name, event_data, event_number, client_id, session_id) 
-          VALUES ($1, $2, $3, $4, $5, $6)
-        `,
-          [
-            storeId || "default",
-            event.eventName || event.name,
-            JSON.stringify(event.data || event),
-            event.eventNumber,
-            event.clientId,
-            event.sessionId,
-          ]
-        );
+    await db.disconnect();
 
-        // Process the event to update actual application tables
-        await processLiveStoreEvent(client, event);
-      }
-
-      await client.query("COMMIT");
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-
-    res.json({ success: true, processed: events.length });
+    res.json({ success: true });
   } catch (error) {
     console.error("Error processing LiveStore events:", error);
     res.status(500).json({
@@ -143,75 +114,22 @@ app.post("/api/electric", async (req, res) => {
   }
 });
 
-// Helper function to process individual LiveStore events
-async function processLiveStoreEvent(client, event) {
+// Debug endpoint to check database contents
+app.get("/api/debug/bookmarks", async (req, res) => {
   try {
-    const eventName = event.eventName || event.name;
-    const data = event.data || event;
+    const storeId = req.query.storeId || "default";
+    const db = makeDb(storeId);
 
-    console.log(`Processing event: ${eventName}`, data);
+    const result = await db.debug();
 
-    // Get the ID field (flexible to handle both 'id' and 'bookmark_id')
-    const bookmarkId = data.bookmark_id || data.id;
+    res.json(result);
 
-    if (!bookmarkId) {
-      console.error(`No ID found in event data:`, data);
-      return;
-    }
-
-    // Map LiveStore events to database operations
-    switch (eventName) {
-      case "v1.BookmarkCreated":
-        await client.query(
-          `
-          INSERT INTO bookmarks (bookmark_id, type, content, author_id, folder_id, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          ON CONFLICT (bookmark_id) DO NOTHING
-        `,
-          [
-            bookmarkId,
-            data.type,
-            data.content,
-            data.author_id,
-            data.folder_id,
-            data.created_at || new Date(),
-          ]
-        );
-        break;
-
-      case "v1.BookmarkUpdated":
-        await client.query(
-          `
-          UPDATE bookmarks 
-          SET type = COALESCE($2, type),
-              content = COALESCE($3, content),
-              folder_id = COALESCE($4, folder_id)
-          WHERE bookmark_id = $1
-        `,
-          [bookmarkId, data.type, data.content, data.folder_id]
-        );
-        break;
-
-      case "v1.BookmarkDeleted":
-        await client.query(
-          `
-          DELETE FROM bookmarks WHERE bookmark_id = $1
-        `,
-          [bookmarkId]
-        );
-        break;
-
-      default:
-        console.log(`Unknown event type: ${eventName}`);
-    }
+    await db.disconnect();
   } catch (error) {
-    console.error(`Error processing event ${event.eventName}:`, error);
-    // Don't throw - let other events process
+    console.error("Error fetching debug data:", error);
+    res.status(500).json({
+      error: "Failed to fetch debug data",
+      details: error.message,
+    });
   }
-}
-// Graceful shutdown
-process.on("SIGTERM", async () => {
-  console.log("Received SIGTERM, closing database pool...");
-  await dbPool.end();
-  process.exit(0);
 });

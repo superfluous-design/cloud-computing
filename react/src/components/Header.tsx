@@ -30,6 +30,7 @@ export default function Header() {
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             bookmarkCreated()
+            updatedNewBookmarkText('')
           }
         }}
       />

@@ -1,3 +1,9 @@
+# TODO:
+
+- [ ] Implement LiveStore integration
+- [ ] Express Authentication
+- [ ] Electric API key
+
 # Superfluous - Express + Electric SQL Integration
 
 This project demonstrates a working Express.js API that integrates with Electric SQL for real-time data synchronization.

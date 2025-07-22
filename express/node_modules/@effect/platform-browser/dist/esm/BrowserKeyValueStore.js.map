@@ -1,0 +1,1 @@
+{"version":3,"file":"BrowserKeyValueStore.js","names":["internal","layerLocalStorage","layerSessionStorage"],"sources":["../../src/BrowserKeyValueStore.ts"],"sourcesContent":[null],"mappings":"AAKA,OAAO,KAAKA,QAAQ,MAAM,6BAA6B;AAEvD;;;;;;AAMA,OAAO,MAAMC,iBAAiB,GAA6CD,QAAQ,CAACC,iBAAiB;AAErG;;;;;;AAMA,OAAO,MAAMC,mBAAmB,GAA6CF,QAAQ,CAACE,mBAAmB","ignoreList":[]}

@@ -58,7 +58,8 @@ export const events = {
 
 // Materializers are used to map events to state (https://docs.livestore.dev/reference/state/materializers)
 const materializers = Livestore.State.SQLite.materializers(events, {
-  'v1.BookmarkCreated': ({ id, name }) => tables.bookmarks.insert({ id, name }),
+  'v1.BookmarkCreated': ({ id, name, folderId }) =>
+    tables.bookmarks.insert({ id, name, folderId }),
   'v1.BookmarkUpdated': ({ id, name }) =>
     tables.bookmarks.update({ name }).where({ id }),
   'v1.BookmarkDeleted': ({ id }) => tables.bookmarks.delete().where({ id }),
