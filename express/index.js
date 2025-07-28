@@ -39,10 +39,13 @@ app.get("/api/electric", async (req, res) => {
       // You can also provide a sourceId and sourceSecret for Electric Cloud
       // sourceId: 'your-source-id',
       // sourceSecret: 'your-source-secret',
-      apiSecret: "change-me-electric-secret",
+      apiSecret: process.env.ELECTRIC_API_SECRET || "change-me-electric-secret",
     });
 
-    if (payload.authToken !== "insecure-token-change-me") {
+    if (
+      payload.authToken !== process.env.AUTH_TOKEN &&
+      payload.authToken !== "change-me-electric-secret"
+    ) {
       return res.status(401).json({ error: "Invalid auth token" });
     }
 

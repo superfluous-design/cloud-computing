@@ -5,11 +5,11 @@ export const makeDb = (storeId) => {
   const tableName = toTableName(storeId);
 
   const sql = postgres({
-    database: "default",
-    port: 5432,
-    user: "administrator",
-    password: "qixqug-boqjim-3zeqvE",
-    host: "localhost",
+    database: process.env.DB_NAME || "default",
+    port: parseInt(process.env.DB_PORT) || 5432,
+    user: process.env.DB_USER || "administrator",
+    password: process.env.DB_PASSWORD || "qixqug-boqjim-3zeqvE",
+    host: process.env.DB_HOST || "localhost",
   });
 
   const migrate = () =>

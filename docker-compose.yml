@@ -123,8 +123,9 @@ services:
       DB_USER: "administrator"
       DB_PASSWORD: "qixqug-boqjim-3zeqvE"
       DB_NAME: "default"
-      ELECTRIC_URL: "http://localhost:3000"
+      ELECTRIC_URL: "http://electric:3000"
       AUTH_TOKEN: "insecure-token-change-me"
+      ELECTRIC_API_SECRET: "change-me-electric-secret"
     ports:
       - "3001:3001"
     depends_on:
