@@ -9,13 +9,19 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Electric service configuration
-const electricHost = process.env.ELECTRIC_URL || "http://localhost:3000";
+const electricHost = process.env.ELECTRIC_URL || "http://electric:3000";
 
 // Enable CORS for all routes
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:80",
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
@@ -59,14 +65,28 @@ app.get("/api/electric", async (req, res) => {
 
     // We are simply proxying the request to the Electric server but you could implement
     // any custom logic here, e.g. auth, rate limiting, etc.
+    console.log(`Proxying request to Electric at: ${url}`);
     const electricResponse = await fetch(url);
 
     // Forward the response from Electric
     const data = await electricResponse.text();
 
-    // Copy headers from Electric response
+    console.log(`Electric response status: ${electricResponse.status}`);
+    console.log(`Electric response data length: ${data.length}`);
+    console.log(
+      `Electric response headers:`,
+      Object.fromEntries(electricResponse.headers.entries())
+    );
+
+    // Copy headers from Electric response, but exclude problematic ones
     electricResponse.headers.forEach((value, key) => {
-      res.setHeader(key, value);
+      // Skip Content-Length and Transfer-Encoding to avoid conflicts
+      if (
+        key.toLowerCase() !== "content-length" &&
+        key.toLowerCase() !== "transfer-encoding"
+      ) {
+        res.setHeader(key, value);
+      }
     });
 
     res.status(electricResponse.status).send(data);
@@ -101,19 +121,46 @@ app.post("/api/electric", async (req, res) => {
 
     const parsedPayload = Schema.decodeUnknownSync(PushPayloadSchema)(payload);
 
+    console.log("Processing batch with", parsedPayload.batch.length, "events");
+    console.log("Store ID:", parsedPayload.storeId);
+    console.log(
+      "First event:",
+      JSON.stringify(parsedPayload.batch[0], null, 2)
+    );
+
+    // Log all events in the batch to see if there are duplicates
+    parsedPayload.batch.forEach((event, index) => {
+      console.log(`Event ${index + 1}:`, JSON.stringify(event, null, 2));
+    });
+
     const db = makeDb(parsedPayload.storeId);
 
-    await db.createEvents(parsedPayload.batch);
+    const newEvents = await db.createEvents(parsedPayload.batch);
+
+    // Process only new events to update bookmarks table
+    if (newEvents.length > 0) {
+      await db.processEvents(newEvents);
+    }
 
     await db.disconnect();
 
     res.json({ success: true });
   } catch (error) {
     console.error("Error processing LiveStore events:", error);
-    res.status(500).json({
-      error: "Failed to process LiveStore events",
-      details: error.message,
-    });
+
+    // Provide more specific error handling for database constraint violations
+    if (error.code === "23505") {
+      console.warn("Duplicate event detected, ignoring:", error.detail);
+      res.status(200).json({
+        success: true,
+        message: "Duplicate events ignored",
+      });
+    } else {
+      res.status(500).json({
+        error: "Failed to process LiveStore events",
+        details: error.message,
+      });
+    }
   }
 });
 

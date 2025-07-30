@@ -5,23 +5,27 @@ CREATE TABLE IF NOT EXISTS users (
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS folders (
-        folder_id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        color VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        author_id INT REFERENCES users(user_id)
-);
+-- This table is now defined above with the correct schema
 
 CREATE TYPE BMTYPE AS ENUM ('URL', 'Text', 'Color');
 
+-- Drop the old bookmarks table if it exists and has the wrong schema
+DROP TABLE IF EXISTS bookmarks CASCADE;
+
 CREATE TABLE IF NOT EXISTS bookmarks (
-        bookmark_id VARCHAR(255) PRIMARY KEY,
-        type BMTYPE NOT NULL,
-        content VARCHAR(255),
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        folder_id VARCHAR(255) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        author_id INT REFERENCES users(user_id),
-        folder_id INT REFERENCES folders(folder_id)
+        store_id VARCHAR(255) NOT NULL
+);
+
+-- Drop the old folders table if it exists and has the wrong schema
+DROP TABLE IF EXISTS folders CASCADE;
+
+CREATE TABLE IF NOT EXISTS folders (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS logs (
@@ -43,11 +47,12 @@ CREATE TABLE IF NOT EXISTS livestore_events (
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default user and folder for testing
+-- Insert default user for testing
 INSERT INTO users (user_id, email, password) 
 VALUES (1, 'test@example.com', 'password123') 
 ON CONFLICT (user_id) DO NOTHING;
 
-INSERT INTO folders (folder_id, name, color, author_id) 
-VALUES (1, 'Default Folder', '#3B82F6', 1) 
-ON CONFLICT (folder_id) DO NOTHING;
+-- Insert default folder for testing (using new schema)
+INSERT INTO folders (id, name) 
+VALUES ('default-folder', 'Default Folder') 
+ON CONFLICT (id) DO NOTHING;
