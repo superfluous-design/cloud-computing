@@ -5,7 +5,7 @@ function App() {
   const { data } = useShape({
     url: `http://localhost:30000/v1/shape`,
     params: {
-      table: `bkmrks`,
+      table: `bookmarks`,
     },
   });
 
