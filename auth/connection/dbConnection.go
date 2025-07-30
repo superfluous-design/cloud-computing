@@ -28,8 +28,8 @@ func GetDatabaseConfig() *DatabaseConfig {
 		Host:     getEnv("DB_HOST", "localhost"),
 		Port:     getEnv("DB_PORT", "5432"),
 		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", ""),
-		Database: getEnv("DB_NAME", "auth_db"),
+		Password: getEnv("DB_PASSWORD", "password"),
+		Database: getEnv("DB_NAME", "electric"),
 		SSLMode:  getEnv("DB_SSLMODE", "disable"),
 	}
 	return config

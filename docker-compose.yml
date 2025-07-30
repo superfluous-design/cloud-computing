@@ -1,47 +1,52 @@
 services:
-  database:
-    image: "postgres:alpine3.22"
-    restart: always
-    command:
-      [
-        "postgres",
-        "-c",
-        "wal_level=logical",
-        "-c",
-        "max_replication_slots=10",
-        "-c",
-        "max_wal_senders=10",
-      ]
-    ports:
-      - 5432:5432
+  postgres:
+    image: docker.io/postgres:16-alpine
     environment:
-      POSTGRES_USER: "administrator"
-      POSTGRES_PASSWORD: "qixqug-boqjim-3zeqvE"
-      POSTGRES_DB: "default"
-    volumes:
-      - pg-db:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d
+      POSTGRES_DB: electric
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+      - /tmp
+    command:
+      - -c
+      - listen_addresses=*
+      - -c
+      - wal_level=logical
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U administrator -d default"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  electric:
+    image: docker.io/electricsql/electric:latest
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/electric?sslmode=disable
+      # Not suitable for production. Only use insecure mode in development or if you've otherwise secured the Electric API.
+      # See https://electric-sql.com/docs/guides/security
+      ELECTRIC_INSECURE: true
+    ports:
+      - "30000:30000"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   auth1:
     build:
       context: ./auth
       dockerfile: Dockerfile
     environment:
-      NAME: "auth1"
-      DB_HOST: database
+      NAME: auth1
       DB_PORT: "5432"
-      DB_USER: "administrator"
-      DB_PASSWORD: "qixqug-boqjim-3zeqvE"
-      DB_NAME: "default"
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: electric
       DB_SSLMODE: "disable"
     depends_on:
-      database:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -64,15 +69,14 @@ services:
       context: ./auth
       dockerfile: Dockerfile
     environment:
-      NAME: "auth2"
-      DB_HOST: database
+      NAME: auth2
       DB_PORT: "5432"
-      DB_USER: "administrator"
-      DB_PASSWORD: "qixqug-boqjim-3zeqvE"
-      DB_NAME: "default"
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: electric
       DB_SSLMODE: "disable"
     depends_on:
-      database:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -84,64 +88,6 @@ services:
           "--tries=1",
           "--spider",
           "http://localhost:8080/api/v1/health",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  electric:
-    image: electricsql/electric:latest
-    environment:
-      DATABASE_URL: "postgresql://administrator:qixqug-boqjim-3zeqvE@database:5432/default?sslmode=disable"
-      ELECTRIC_PORT: "3000"
-      ELECTRIC_STORAGE_DIR: "/var/lib/electric/persistent"
-      ELECTRIC_INSECURE: "true"
-    ports:
-      - "3000:3000"
-    volumes:
-      - electric-storage:/var/lib/electric/persistent
-    depends_on:
-      database:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  express-api:
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    environment:
-      PORT: "3001"
-      DB_HOST: database
-      DB_PORT: "5432"
-      DB_USER: "administrator"
-      DB_PASSWORD: "qixqug-boqjim-3zeqvE"
-      DB_NAME: "default"
-      ELECTRIC_URL: "http://localhost:3000"
-      AUTH_TOKEN: "insecure-token-change-me"
-    ports:
-      - "3001:3001"
-    depends_on:
-      database:
-        condition: service_healthy
-      electric:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3001/api/health",
         ]
       interval: 30s
       timeout: 10s
@@ -160,8 +106,6 @@ services:
         condition: service_healthy
       auth2:
         condition: service_healthy
-      express-api:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test:
@@ -177,7 +121,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-volumes:
-  pg-db:
-  electric-storage:
