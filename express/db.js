@@ -12,11 +12,6 @@ export const makeDb = (storeId) => {
     host: process.env.DB_HOST || "localhost",
   });
 
-  // Remove the migrate function since the table already exists
-  const migrate = () => {
-    console.log("Table livestore_events already exists, skipping migration");
-  };
-
   const debug = async () => {
     const result = await sql`SELECT * FROM ${sql(tableName)}`;
     return result;
@@ -139,7 +134,6 @@ export const makeDb = (storeId) => {
   };
 
   return {
-    migrate,
     createEvents,
     processEvents,
     debug,

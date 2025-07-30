@@ -59,7 +59,6 @@ app.get("/api/electric", async (req, res) => {
     // already have the necessary tables created in the database.
     if (needsInit) {
       const db = makeDb(storeId);
-      await db.migrate();
       await db.disconnect();
     }
 
@@ -161,25 +160,5 @@ app.post("/api/electric", async (req, res) => {
         details: error.message,
       });
     }
-  }
-});
-
-// Debug endpoint to check database contents
-app.get("/api/debug/bookmarks", async (req, res) => {
-  try {
-    const storeId = req.query.storeId || "default";
-    const db = makeDb(storeId);
-
-    const result = await db.debug();
-
-    res.json(result);
-
-    await db.disconnect();
-  } catch (error) {
-    console.error("Error fetching debug data:", error);
-    res.status(500).json({
-      error: "Failed to fetch debug data",
-      details: error.message,
-    });
   }
 });
