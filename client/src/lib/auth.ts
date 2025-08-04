@@ -32,7 +32,7 @@ export interface RegisterResponse {
   user_id: number;
 }
 
-const API_BASE_URL = "/auth/api/v1";
+const API_BASE_URL = "http://localhost/auth/api/v1";
 
 // Token management
 export const getStoredTokens = (): Tokens | null => {
