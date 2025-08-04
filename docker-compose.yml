@@ -99,7 +99,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
   client:
     build:
       context: ./client
@@ -111,7 +110,14 @@ services:
     depends_on:
       - electric
     restart: unless-stopped
-
+  express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
   nginx:
     image: nginx:alpine
     ports:
