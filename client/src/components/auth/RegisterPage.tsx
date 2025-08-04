@@ -44,18 +44,18 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-zinc-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-zinc-100">
             Create your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-sm text-zinc-400">
             Or{" "}
             <button
               type="button"
               onClick={onSwitchToLogin}
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-zinc-300 hover:text-zinc-100 transition-colors"
             >
               sign in to your existing account
             </button>
@@ -64,7 +64,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email" className="text-zinc-300">
+                Email address
+              </Label>
               <Input
                 id="email"
                 name="email"
@@ -74,11 +76,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                className="mt-1"
+                className="mt-1 bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 transition-colors"
               />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-zinc-300">
+                Password
+              </Label>
               <Input
                 id="password"
                 name="password"
@@ -88,11 +92,13 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="mt-1"
+                className="mt-1 bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 transition-colors"
               />
             </div>
             <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-zinc-300">
+                Confirm Password
+              </Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -102,17 +108,23 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm your password"
-                className="mt-1"
+                className="mt-1 bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 transition-colors"
               />
             </div>
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
+            <div className="text-red-400 text-sm text-center bg-red-950/20 border border-red-800 rounded-lg p-3">
+              {error}
+            </div>
           )}
 
           <div>
-            <Button type="submit" disabled={isLoading} className="w-full">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700 transition-colors"
+            >
               {isLoading ? "Creating account..." : "Create account"}
             </Button>
           </div>

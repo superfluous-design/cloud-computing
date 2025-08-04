@@ -39,6 +39,9 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/lib/use-auth";
+import { LoginPage } from "@/components/auth/LoginPage";
+import { RegisterPage } from "@/components/auth/RegisterPage";
 
 interface BookmarkItem {
   id: string;
@@ -57,6 +60,8 @@ interface FolderItem {
 }
 
 export default function BookmarkManager() {
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
+  const [isLoginMode, setIsLoginMode] = useState(true);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string>("");
@@ -515,6 +520,28 @@ export default function BookmarkManager() {
 
   const currentFolder = folders.find((f) => f.id === selectedFolderId);
 
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth pages if not authenticated
+  if (!isAuthenticated) {
+    return isLoginMode ? (
+      <LoginPage onSwitchToRegister={() => setIsLoginMode(false)} />
+    ) : (
+      <RegisterPage onSwitchToLogin={() => setIsLoginMode(true)} />
+    );
+  }
+
+  // App loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center">
@@ -529,8 +556,17 @@ export default function BookmarkManager() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="max-w-6xl mx-auto p-4 sm:p-6">
-        {/* Header */}
+        {/* App Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-zinc-100">Superfluous</h1>
+            {user && (
+              <span className="text-sm text-zinc-400">
+                Welcome, {user.email}
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center gap-4">
             <DropdownMenu
               open={isFolderDropdownOpen}
@@ -658,9 +694,11 @@ export default function BookmarkManager() {
               >
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium text-zinc-100">John Doe</p>
+                    <p className="font-medium text-zinc-100">
+                      {user?.email?.split("@")[0] || "User"}
+                    </p>
                     <p className="w-[200px] truncate text-sm text-zinc-400">
-                      john.doe@example.com
+                      {user?.email || "user@example.com"}
                     </p>
                   </div>
                 </div>
@@ -691,7 +729,10 @@ export default function BookmarkManager() {
                   />
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-zinc-800" />
-                <DropdownMenuItem className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 transition-colors">
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
