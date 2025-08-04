@@ -44,8 +44,9 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password
       DB_NAME: electric
-      DB_HOST: localhost
+      DB_HOST: postgres
       DB_SSLMODE: "disable"
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,8 +76,9 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password
       DB_NAME: electric
-      DB_HOST: localhost
+      DB_HOST: postgres
       DB_SSLMODE: "disable"
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,7 +122,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   nginx:
     image: nginx:alpine

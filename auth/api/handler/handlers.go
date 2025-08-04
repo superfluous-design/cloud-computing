@@ -18,6 +18,7 @@ func Routes() *gin.Engine {
 	{
 		api.POST("/register", Register)
 		api.POST("/login", Login)
+		api.POST("/refresh", RefreshToken)
 		api.GET("/health", HealthCheck)
 	}
 

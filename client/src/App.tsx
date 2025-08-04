@@ -1,18 +1,21 @@
 import "./App.css";
-import { useShape } from "@electric-sql/react";
+import { AuthProvider } from "./lib/auth-context";
+import { AuthWrapper } from "./components/auth/AuthWrapper";
+import { Header } from "./components/Header";
+import BookmarkComponent from "./components/bookmark";
 
 function App() {
-  const { data } = useShape({
-    url: `http://localhost:30000/v1/shape`,
-    params: {
-      table: `bookmarks`,
-    },
-  });
-
   return (
-    <>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </>
+    <AuthProvider>
+      <AuthWrapper>
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <BookmarkComponent />
+          </main>
+        </div>
+      </AuthWrapper>
+    </AuthProvider>
   );
 }
 
