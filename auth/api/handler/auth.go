@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+	"log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -23,7 +24,7 @@ type LoginData struct {
 }
 
 type User struct {
-	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
 	Email     string    `json:"email"`
 	Password  string    `json:"-"` // Don't include password in JSON responses
 	CreatedAt time.Time `json:"created_at"`
@@ -62,7 +63,7 @@ func Register(c *gin.Context) {
 	defer cancel()
 
 	var existingUser User
-	err := db.QueryRow(ctx, "SELECT id, email FROM users WHERE email = $1", data.Email).Scan(&existingUser.ID, &existingUser.Email)
+	err := db.QueryRow(ctx, "SELECT user_id, email FROM users WHERE email = $1", data.Email).Scan(&existingUser.UserID, &existingUser.Email)
 	if err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
@@ -78,11 +79,12 @@ func Register(c *gin.Context) {
 	// Insert new user
 	var userID int
 	err = db.QueryRow(ctx,
-		"INSERT INTO users (email, password, created_at) VALUES ($1, $2, $3) RETURNING id",
-		data.Email, string(hashedPassword), time.Now(),
+		"INSERT INTO users (email, password) VALUES ($1, $2) RETURNING user_id",
+		data.Email, string(hashedPassword),
 	).Scan(&userID)
 
 	if err != nil {
+		log.Println("Failed to create user", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -162,9 +164,9 @@ func Login(c *gin.Context) {
 	var user User
 	var hashedPassword string
 	err := db.QueryRow(ctx,
-		"SELECT id, email, password, created_at FROM users WHERE email = $1",
+		"SELECT user_id, email, password, created_at FROM users WHERE email = $1",
 		data.Email,
-	).Scan(&user.ID, &user.Email, &hashedPassword, &user.CreatedAt)
+	).Scan(&user.UserID, &user.Email, &hashedPassword, &user.CreatedAt)
 
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
@@ -179,7 +181,7 @@ func Login(c *gin.Context) {
 	}
 
 	// Generate tokens
-	tokens, err := generateTokens(user.ID, user.Email)
+	tokens, err := generateTokens(user.UserID, user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
 		return
