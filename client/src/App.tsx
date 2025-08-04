@@ -1,4 +1,3 @@
-import "./App.css";
 import { AuthProvider } from "./lib/auth-context";
 import { AuthWrapper } from "./components/auth/AuthWrapper";
 import { Header } from "./components/Header";
