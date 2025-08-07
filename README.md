@@ -1,46 +1,67 @@
-# Superfluous - Express + Electric SQL Integration
+# Superfluous - Microservices Bookmark Manager
 
-This project demonstrates a working Express.js API that integrates with Electric SQL for real-time data synchronization.
+A full-stack bookmark management application built with a microservices architecture, featuring React frontend, Go authentication services, Node.js APIs, and PostgreSQL with Electric SQL for real-time synchronization.
 
-## ✅ **Current Status**
-
-**This setup WILL work correctly** with your docker-compose configuration and Electric connection.
-
-## Architecture Overview
+## 🏗️ Architecture Overview
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Client App    │    │  Express API    │    │   PostgreSQL    │
-│                 │◄──►│  (Electric      │◄──►│   Database      │
-│                 │    │   Proxy)        │    │                 │
+│   React Client  │    │      Nginx      │    │   PostgreSQL    │
+│  (Vite + SPA)   │◄──►│  Load Balancer  │◄──►│   Database      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │                        │
                                 ▼                        │
-                       ┌─────────────────┐               │
-                       │  Electric SQL   │◄──────────────┘
-                       │  Sync Engine    │
-                       └─────────────────┘
+        ┌─────────────────┬─────────────────┬──────────────────┐
+        │                 │                 │                  │
+        ▼                 ▼                 ▼                  ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐    ┌─────────────┐
+│  Auth APIs  │  │ Bookmark API│  │ Folder API  │    │Electric SQL │
+│   (Go)      │  │  (Node.js)  │  │ (Node.js)   │    │Sync Engine  │
+│ auth1:8080  │  │express2:3003│  │express3:3004│    │   :30000    │
+│ auth2:8080  │  └─────────────┘  └─────────────┘    └─────────────┘
+└─────────────┘           │                │                  │
+        │                 │                │                  │
+        └─────────────────┴────────────────┴──────────────────┘
+                                │
+                                ▼
+                     ┌─────────────────┐
+                     │   Export API    │
+                     │   (Node.js)     │
+                     │  express4:3005  │
+                     └─────────────────┘
 ```
 
-## What Works Right Now
+## 🚀 What This Application Provides
 
-✅ **Docker Compose Setup**: All services properly configured  
-✅ **Electric SQL Integration**: Real-time sync from PostgreSQL  
-✅ **Express API**: Full CRUD operations for bookmarks  
-✅ **Electric Proxy**: `/api/electric` endpoint for sync  
-✅ **Database Connection**: Direct writes, Electric reads  
-✅ **Health Checks**: All services monitored  
-✅ **Nginx Routing**: Traffic properly distributed
+✅ **Complete Bookmark Management**: Create, read, update, delete bookmarks with multiple types (URL, text, color)  
+✅ **Folder Organization**: Organize bookmarks into custom folders  
+✅ **User Authentication**: JWT-based auth with registration, login, and token refresh  
+✅ **Data Export/Import**: Full data export and import with bulk operations  
+✅ **Real-time Sync**: Electric SQL integration for real-time data synchronization  
+✅ **Modern UI**: React-based single-page application with responsive design  
+✅ **Microservices Architecture**: Scalable service-oriented design  
+✅ **Load Balancing**: Nginx with upstream load balancing for auth services
 
-## Services
+## 📦 Services Breakdown
 
-- **PostgreSQL**: Main database with logical replication enabled
-- **Electric**: Sync engine for real-time data streaming
-- **Express API**: CRUD operations + Electric proxy
-- **Auth Services**: Go-based authentication (2 instances for load balancing)
-- **Nginx**: Reverse proxy and load balancer
+### Frontend
 
-## Quick Start
+- **React Client** (`client:5173`): Modern SPA built with Vite, TypeScript, and shadcn/ui components
+
+### Backend Services
+
+- **Auth Service** (`auth1:8080`, `auth2:8080`): Go-based JWT authentication with load balancing
+- **Bookmark API** (`express2:3003`): Node.js service for bookmark CRUD operations
+- **Folder API** (`express3:3004`): Node.js service for folder management
+- **Export API** (`express4:3005`): Node.js service for data export/import and bulk operations
+
+### Infrastructure
+
+- **PostgreSQL** (`postgres:5432`): Primary database with logical replication enabled
+- **Electric SQL** (`:30000`): Real-time sync engine for live data updates
+- **Nginx** (`:80`): Reverse proxy, load balancer, and static file server
+
+## 🚀 Quick Start
 
 1. **Start the services**:
 
@@ -54,199 +75,196 @@ This project demonstrates a working Express.js API that integrates with Electric
    # Check all services are healthy
    docker-compose ps
 
-   # Test the API
-   curl http://localhost/api/health
+   # Test auth service
+   curl http://localhost/auth/api/v1/health
 
    # Test Electric connection
    curl http://localhost/electric/v1/health
    ```
 
-3. **Test the integration**:
+3. **Access the application**:
 
-   ```bash
-   # Create a bookmark (writes to database)
-   curl -X POST http://localhost/api/bookmarks \
-     -H "Content-Type: application/json" \
-     -d '{
-       "type": "URL",
-       "content": "https://example.com",
-       "author_id": 1,
-       "folder_id": 1
-     }'
+   - **Web UI**: http://localhost (React frontend)
+   - **Database**: `postgresql://postgres:password@localhost:5432/electric`
 
-   # Get bookmarks via Electric sync
-   curl "http://localhost/api/electric?table=bookmarks&offset=-1" \
-     -H "Authorization: insecure-token-change-me"
-   ```
+4. **Create an account and start using**:
+   - Register a new account through the web interface
+   - Create folders to organize your bookmarks
+   - Add bookmarks with different types (URL, text, color)
+   - Export/import your data as needed
 
-## API Endpoints
+## 📡 API Endpoints
 
-### Core CRUD Operations
+### Authentication Service (Go - Port 8080)
 
-- `POST /api/bookmarks` - Create bookmark
-- `GET /api/bookmarks/:userId` - Get user bookmarks
-- `GET /api/bookmarks/sync/:userId` - Get bookmarks via Electric sync
-- `PUT /api/bookmarks/:bookmarkId` - Update bookmark
-- `DELETE /api/bookmarks/:bookmarkId` - Delete bookmark
+- `POST /auth/api/v1/register` - Register new user
+- `POST /auth/api/v1/login` - User login (returns JWT tokens)
+- `POST /auth/api/v1/refresh` - Refresh access token
+- `GET /auth/api/v1/health` - Health check
 
-### Electric Integration
+### Bookmark Service (Node.js - Port 3003)
 
-- `GET /api/electric` - Electric sync proxy (with auth)
-- `POST /api/electric` - Event processing endpoint
+- `GET /bookmarks` - Get all user bookmarks (requires auth)
+- `POST /bookmarks` - Create new bookmark (requires auth)
+- `PUT /bookmarks/:id` - Update bookmark (requires auth)
+- `DELETE /bookmarks/:id` - Delete bookmark (requires auth)
 
-## How It Works
+### Folder Service (Node.js - Port 3004)
 
-### 1. **Write Path**: Direct to Database
+- `GET /folders` - Get all user folders with bookmark counts (requires auth)
+- `POST /folders` - Create new folder (requires auth)
+- `PUT /folders/:id` - Update folder name (requires auth)
+- `DELETE /folders/:id` - Delete folder (moves bookmarks to default)
+- `POST /folders/init-default` - Initialize default folder for user
 
-```javascript
-// Create bookmark → PostgreSQL
-POST / api / bookmarks;
+### Export Service (Node.js - Port 3005)
+
+- `GET /export` - Export all user data (folders + bookmarks)
+- `POST /import` - Import data with optional replace existing
+- `POST /bulk-delete` - Bulk delete bookmarks and/or folders
+
+### Electric SQL Integration
+
+- `GET /electric/v1/health` - Electric health check
+- Electric sync endpoints available for real-time data streaming
+
+## 🔧 How It Works
+
+### Request Flow
+
+1. **User registers/logs in** → Auth service generates JWT tokens
+2. **Client makes API calls** → Nginx routes to appropriate microservice
+3. **Services authenticate** → JWT validation on each protected endpoint
+4. **Data operations** → Services interact directly with PostgreSQL
+5. **Real-time sync** → Electric SQL streams changes to connected clients
+
+### Authentication Flow
+
+```
+Client → Nginx → Auth Service → PostgreSQL
+         ↓
+    JWT Tokens ← Auth Service
+         ↓
+Client API calls with Bearer token → Nginx → Other Services
 ```
 
-### 2. **Read Path**: Electric Sync
+### Microservices Communication
 
-```javascript
-// Real-time sync ← Electric ← PostgreSQL logical replication
-GET /api/electric?table=bookmarks&offset=-1
-```
+- Each service runs independently in Docker containers
+- Services communicate with PostgreSQL directly (no inter-service calls)
+- Nginx handles load balancing for auth services (auth1, auth2)
+- All services validate JWT tokens independently
 
-### 3. **Real-time Updates**
+### Data Persistence
 
-1. Client writes data via Express API → PostgreSQL
-2. PostgreSQL logical replication → Electric
-3. Electric streams updates → All connected clients
-4. Clients automatically receive real-time updates
+- **PostgreSQL** serves as the single source of truth
+- **Electric SQL** provides real-time sync capabilities via logical replication
+- Default folders are auto-created for new users
+- Referential integrity maintained with foreign key constraints
 
-## LiveStore Compatibility
+## ⚙️ Environment Variables
 
-### Current State
-
-The Express server provides **basic Electric proxy endpoints** compatible with LiveStore 0.3.1's event-sourcing approach, but doesn't include the full LiveStore sync implementation yet.
-
-### If You Want Full LiveStore Integration
-
-See `express/livestore-example.js` for a complete LiveStore 0.3.1 implementation example with:
-
-- Event-sourced data model
-- Custom sync adapter for your Express backend
-- Proper schema definitions
-- Materializers for event → state mapping
-
-### Client Setup (Optional LiveStore)
-
-```bash
-# If you want to use LiveStore
-npm install @livestore/livestore@0.3.1
-```
-
-```javascript
-// Basic client without LiveStore
-const response = await fetch('/api/electric?table=bookmarks&offset=-1', {
-  headers: { 'Authorization': 'insecure-token-change-me' }
-})
-
-// With LiveStore (see livestore-example.js)
-import store from './livestore-example.js'
-const bookmarks = await store.query(...)
-```
-
-## Environment Variables
+### PostgreSQL
 
 ```env
-# Express Service
-PORT=3001
-DB_HOST=database
-DB_USER=administrator
-DB_PASSWORD=qixqug-boqjim-3zeqvE
-DB_NAME=default
-ELECTRIC_URL=http://electric:3000
-AUTH_TOKEN=insecure-token-change-me
+POSTGRES_DB=electric
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
 ```
 
-## Database Schema
+### Auth Services (Go)
 
-### Application Tables (auto-created)
+```env
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=electric
+DB_SSLMODE=disable
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+```
 
-- `users` - User accounts
-- `bookmarks` - User bookmarks with type enum
-- `folders` - Bookmark folders
-- `logs` - System logs
+### Node.js Services (Express2, Express3, Express4)
 
-### LiveStore Tables (created when needed)
+```env
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=password
+DB_NAME=electric
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+```
 
-- `livestore_events` - Event sourcing log
+### Electric SQL
 
-## Monitoring & Debugging
+```env
+DATABASE_URL=postgresql://postgres:password@postgres:5432/electric?sslmode=disable
+ELECTRIC_INSECURE=true  # Development only
+```
+
+## 🗄️ Database Schema
+
+### Core Tables
+
+#### `users`
+
+- `user_id` (SERIAL PRIMARY KEY)
+- `email` (VARCHAR, unique)
+- `password` (VARCHAR, bcrypt hashed)
+- `created_at` (TIMESTAMP)
+
+#### `folders`
+
+- `folder_id` (VARCHAR PRIMARY KEY)
+- `name` (VARCHAR)
+- `author_id` (INT, FK to users)
+- `created_at` (TIMESTAMP)
+
+#### `bookmarks`
+
+- `bookmark_id` (VARCHAR PRIMARY KEY)
+- `content` (TEXT)
+- `type` (VARCHAR: 'url', 'text', 'color')
+- `title` (VARCHAR, optional)
+- `url` (TEXT, optional)
+- `folder_id` (VARCHAR, FK to folders)
+- `author_id` (INT, FK to users)
+- `created_at` (TIMESTAMP)
+
+### Default Data
+
+- Test user: `test@example.com` / `password`
+- Default folders created automatically for each user
+
+## 🔍 Monitoring & Debugging
 
 ### Health Checks
 
 ```bash
-curl http://localhost/api/health          # Express
-curl http://localhost/electric/v1/health  # Electric
-curl http://localhost/nginx-health        # Nginx
+# Check all service health endpoints
+curl http://localhost/auth/api/v1/health      # Auth services (load balanced)
+curl http://localhost/electric/v1/health      # Electric SQL
+curl http://localhost/nginx-health            # Nginx
 ```
 
-### View Logs
+### View Service Logs
 
 ```bash
-docker-compose logs -f express-api
-docker-compose logs -f electric
+# View logs for specific services
+docker-compose logs -f auth1 auth2            # Authentication services
+docker-compose logs -f express2               # Bookmark service
+docker-compose logs -f express3               # Folder service
+docker-compose logs -f express4               # Export service
+docker-compose logs -f electric               # Electric SQL
+docker-compose logs -f client                 # React frontend
 ```
 
-### Check Electric Shapes
+### Service Status
 
 ```bash
-curl "http://localhost/electric/v1/shape?table=bookmarks&offset=-1"
+# Check which services are running
+docker-compose ps
+
+# Check resource usage
+docker stats
 ```
-
-### Monitor Database Replication
-
-```sql
-SELECT * FROM pg_replication_slots;
-SELECT * FROM pg_publication;
-```
-
-## Production Checklist
-
-- [ ] Change `AUTH_TOKEN` and database passwords
-- [ ] Implement proper authentication (JWT, OAuth, etc.)
-- [ ] Enable SSL/TLS
-- [ ] Use managed PostgreSQL service
-- [ ] Deploy Electric behind CDN
-- [ ] Set up proper logging and monitoring
-- [ ] Scale Express API horizontally
-
-## Troubleshooting
-
-### Electric Connection Issues
-
-1. Ensure PostgreSQL has `wal_level=logical` ✅
-2. Check Electric can connect to database ✅
-3. Verify replication slot exists ✅
-
-### API Issues
-
-1. Check service health endpoints
-2. Verify Docker network connectivity
-3. Check environment variables match between services
-
-### Performance
-
-1. Electric includes caching headers ✅
-2. Nginx configured for caching ✅
-3. Use indexes on frequently queried fields
-4. Monitor Electric replication lag
-
-## Why This Architecture Works
-
-1. **Simple**: Express handles writes, Electric handles reads
-2. **Reliable**: Proven technologies with health monitoring
-3. **Scalable**: Each component can scale independently
-4. **Real-time**: Electric provides instant updates to all clients
-5. **Flexible**: Can add LiveStore or other client libraries later
-
-This setup gives you **local-first capabilities** with **real-time sync** without the complexity of a full event-sourcing implementation initially.
-
-## License
-
-MIT
