@@ -118,6 +118,54 @@ services:
       - "3002:3002"
     depends_on:
       - postgres
+  express2:
+    build:
+      context: ./express2
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: electric
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  express3:
+    build:
+      context: ./express3
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: electric
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+  express4:
+    build:
+      context: ./express4
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: electric
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
   nginx:
     image: nginx:alpine
     ports:

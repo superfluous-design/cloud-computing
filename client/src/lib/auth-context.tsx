@@ -9,6 +9,7 @@ import {
 } from "./auth";
 import { AuthContext } from "./auth-context-definition";
 import type { AuthContextType } from "./auth-context-definition";
+import { getUserFromToken, isTokenExpired } from "./jwt-utils";
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -22,14 +23,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check for stored tokens on app start
     const tokens = getStoredTokens();
     if (tokens?.access_token) {
-      // TODO: Validate token with backend or decode JWT to get user info
-      // For now, we'll just set a basic user object
-      // In a real app, you'd want to validate the token with the backend
-      setUser({
-        id: 0, // This should come from token validation
-        email: "", // This should come from token validation
-        created_at: new Date().toISOString(),
-      });
+      // Check if token is expired
+      if (isTokenExpired(tokens.access_token)) {
+        console.log("Access token expired, clearing tokens");
+        clearStoredTokens();
+        setUser(null);
+      } else {
+        // Decode JWT to get user info
+        const userFromToken = getUserFromToken(tokens.access_token);
+        if (userFromToken) {
+          setUser(userFromToken);
+        } else {
+          console.log("Failed to decode token, clearing tokens");
+          clearStoredTokens();
+          setUser(null);
+        }
+      }
     }
     setIsLoading(false);
   }, []);

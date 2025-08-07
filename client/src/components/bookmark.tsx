@@ -42,6 +42,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/use-auth";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { RegisterPage } from "@/components/auth/RegisterPage";
+import {
+  apiClient,
+  type BookmarkItem as ApiBookmarkItem,
+  type FolderItem as ApiFolderItem,
+} from "@/lib/api";
 
 interface BookmarkItem {
   id: string;
@@ -51,12 +56,14 @@ interface BookmarkItem {
   url?: string;
   folderId: string;
   createdAt: Date;
+  folderName?: string;
 }
 
 interface FolderItem {
   id: string;
   name: string;
   createdAt: Date;
+  bookmarkCount?: number;
 }
 
 export default function BookmarkManager() {
@@ -81,63 +88,96 @@ export default function BookmarkManager() {
   const searchRef = useRef<HTMLInputElement>(null);
   const bookmarkRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Load data from localStorage on mount
+  // Load data from API on mount
   useEffect(() => {
-    const loadData = () => {
-      const savedFolders = localStorage.getItem("bookmark-folders");
-      const savedBookmarks = localStorage.getItem("bookmark-items");
-      if (savedFolders) {
-        const parsedFolders = JSON.parse(savedFolders).map(
-          (folder: FolderItem) => ({
-            ...folder,
-            createdAt: new Date(folder.createdAt),
-          })
-        );
-        setFolders(parsedFolders);
-        if (parsedFolders.length > 0) {
-          setSelectedFolderId(parsedFolders[0].id);
+    const loadData = async () => {
+      if (!isAuthenticated) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Check for localStorage migration first
+        const localData = apiClient.migrateLocalStorageData();
+        if (localData) {
+          console.log("Migrating localStorage data to API...");
+          const importResult = await apiClient.importData({
+            ...localData,
+            replaceExisting: false,
+          });
+
+          if (importResult.error) {
+            console.error("Migration failed:", importResult.error);
+          } else {
+            console.log("Migration successful:", importResult.data?.stats);
+            apiClient.clearLocalStorageData();
+          }
         }
-      } else {
-        // Create default folder
-        const defaultFolder = {
-          id: "default",
-          name: "General",
-          createdAt: new Date(),
-        };
-        setFolders([defaultFolder]);
-        setSelectedFolderId("default");
-      }
 
-      if (savedBookmarks) {
-        const parsedBookmarks = JSON.parse(savedBookmarks).map(
-          (bookmark: BookmarkItem) => ({
-            ...bookmark,
-            createdAt: new Date(bookmark.createdAt),
-          })
-        );
-        setBookmarks(parsedBookmarks);
-      }
+        // Load folders
+        const foldersResult = await apiClient.getFolders();
+        if (foldersResult.error) {
+          console.error("Error loading folders:", foldersResult.error);
+          // Initialize default folder if none exist
+          await apiClient.initDefaultFolder();
+          const retryFolders = await apiClient.getFolders();
+          if (retryFolders.data) {
+            const folders = retryFolders.data.map((folder: ApiFolderItem) => ({
+              id: folder.folder_id,
+              name: folder.name,
+              createdAt: new Date(folder.created_at),
+              bookmarkCount: folder.bookmark_count || 0,
+            }));
+            setFolders(folders);
+            if (folders.length > 0) {
+              setSelectedFolderId(folders[0].id);
+            }
+          }
+        } else {
+          const folders = foldersResult.data!.map((folder: ApiFolderItem) => ({
+            id: folder.folder_id,
+            name: folder.name,
+            createdAt: new Date(folder.created_at),
+            bookmarkCount: folder.bookmark_count || 0,
+          }));
+          setFolders(folders);
+          if (folders.length > 0) {
+            setSelectedFolderId(folders[0].id);
+          }
+        }
 
-      setIsLoading(false);
-      // Focus input after loading
-      setTimeout(() => inputRef.current?.focus(), 100);
+        // Load bookmarks
+        const bookmarksResult = await apiClient.getBookmarks();
+        if (bookmarksResult.error) {
+          console.error("Error loading bookmarks:", bookmarksResult.error);
+        } else {
+          const bookmarks = bookmarksResult.data!.map(
+            (bookmark: ApiBookmarkItem) => ({
+              id: bookmark.bookmark_id,
+              content: bookmark.content,
+              type: bookmark.type,
+              title: bookmark.title,
+              url: bookmark.url,
+              folderId: bookmark.folder_id,
+              createdAt: new Date(bookmark.created_at),
+              folderName: bookmark.folder_name,
+            })
+          );
+          setBookmarks(bookmarks);
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setIsLoading(false);
+        // Focus input after loading
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
     };
 
     loadData();
-  }, []);
+  }, [isAuthenticated]);
 
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("bookmark-folders", JSON.stringify(folders));
-    }
-  }, [folders, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("bookmark-items", JSON.stringify(bookmarks));
-    }
-  }, [bookmarks, isLoading]);
+  // No longer using localStorage - data is persisted via API
 
   // Debounced search
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -256,79 +296,188 @@ export default function BookmarkManager() {
     return () => clearTimeout(timer);
   }, [newItemContent]);
 
-  const addFolder = (name: string) => {
-    const newFolder: FolderItem = {
-      id: Date.now().toString(),
-      name,
-      createdAt: new Date(),
-    };
-    setFolders((prev) => [...prev, newFolder]);
-    setIsAddFolderOpen(false);
+  const addFolder = async (name: string) => {
+    try {
+      const result = await apiClient.createFolder(name);
+      if (result.error) {
+        console.error("Error creating folder:", result.error);
+        return;
+      }
+
+      const newFolder: FolderItem = {
+        id: result.data!.folder_id,
+        name: result.data!.name,
+        createdAt: new Date(result.data!.created_at),
+        bookmarkCount: 0,
+      };
+
+      setFolders((prev) => [...prev, newFolder]);
+      setIsAddFolderOpen(false);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+    }
   };
 
-  const addBookmark = (content: string) => {
+  const addBookmark = async (content: string) => {
     if (!content.trim()) return;
 
-    const { type, title, url } = detectContentType(content);
-    const newBookmark: BookmarkItem = {
-      id: Date.now().toString(),
-      content: content.trim(),
-      type,
-      title,
-      url,
-      folderId: selectedFolderId,
-      createdAt: new Date(),
-    };
-    setBookmarks((prev) => [newBookmark, ...prev]);
-    setNewItemContent("");
-    setSelectedBookmarkIndex(0);
+    try {
+      const { type, title, url } = detectContentType(content);
 
-    // Focus back to input
-    setTimeout(() => inputRef.current?.focus(), 100);
-  };
+      const result = await apiClient.createBookmark({
+        content: content.trim(),
+        type,
+        title,
+        url,
+        folder_id: selectedFolderId,
+      });
 
-  const deleteBookmark = (id: string) => {
-    setBookmarks((prev) => prev.filter((b) => b.id !== id));
-    if (selectedBookmarkIndex >= filteredBookmarks.length - 1) {
-      setSelectedBookmarkIndex(Math.max(0, filteredBookmarks.length - 2));
-    }
-  };
+      if (result.error) {
+        console.error("Error creating bookmark:", result.error);
+        return;
+      }
 
-  const deleteFolder = (id: string) => {
-    if (id === "default") return;
-    setFolders((prev) => prev.filter((f) => f.id !== id));
-    setBookmarks((prev) => prev.filter((b) => b.folderId !== id));
-    if (selectedFolderId === id) {
-      setSelectedFolderId(folders[0]?.id || "");
-    }
-  };
+      const newBookmark: BookmarkItem = {
+        id: result.data!.bookmark_id,
+        content: result.data!.content,
+        type: result.data!.type,
+        title: result.data!.title,
+        url: result.data!.url,
+        folderId: result.data!.folder_id,
+        createdAt: new Date(result.data!.created_at),
+      };
 
-  const selectFolderByNumber = (number: number) => {
-    const folderIndex = number - 1;
-    if (folderIndex >= 0 && folderIndex < folders.length) {
-      setSelectedFolderId(folders[folderIndex].id);
+      setBookmarks((prev) => [newBookmark, ...prev]);
+      setNewItemContent("");
       setSelectedBookmarkIndex(0);
-      setIsFolderDropdownOpen(false);
+
+      // Update folder bookmark count
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === selectedFolderId
+            ? { ...f, bookmarkCount: (f.bookmarkCount || 0) + 1 }
+            : f
+        )
+      );
+
+      // Focus back to input
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } catch (error) {
+      console.error("Error creating bookmark:", error);
     }
   };
 
-  const exportBookmarks = () => {
-    const data = {
-      folders,
-      bookmarks,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bookmarks-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const deleteBookmark = useCallback(
+    async (id: string) => {
+      try {
+        const bookmarkToDelete = bookmarks.find((b) => b.id === id);
+
+        const result = await apiClient.deleteBookmark(id);
+        if (result.error) {
+          console.error("Error deleting bookmark:", result.error);
+          return;
+        }
+
+        setBookmarks((prev) => prev.filter((b) => b.id !== id));
+
+        if (selectedBookmarkIndex >= filteredBookmarks.length - 1) {
+          setSelectedBookmarkIndex(Math.max(0, filteredBookmarks.length - 2));
+        }
+
+        // Update folder bookmark count
+        if (bookmarkToDelete) {
+          setFolders((prev) =>
+            prev.map((f) =>
+              f.id === bookmarkToDelete.folderId
+                ? {
+                    ...f,
+                    bookmarkCount: Math.max(0, (f.bookmarkCount || 1) - 1),
+                  }
+                : f
+            )
+          );
+        }
+      } catch (error) {
+        console.error("Error deleting bookmark:", error);
+      }
+    },
+    [bookmarks, selectedBookmarkIndex, filteredBookmarks]
+  );
+
+  const deleteFolder = async (id: string) => {
+    if (id.startsWith("default-")) return;
+
+    try {
+      const result = await apiClient.deleteFolder(id);
+      if (result.error) {
+        console.error("Error deleting folder:", result.error);
+        return;
+      }
+
+      setFolders((prev) => prev.filter((f) => f.id !== id));
+
+      // Bookmarks are moved to default folder by the API
+      // Reload bookmarks to get updated folder assignments
+      const bookmarksResult = await apiClient.getBookmarks();
+      if (bookmarksResult.data) {
+        const updatedBookmarks = bookmarksResult.data.map(
+          (bookmark: ApiBookmarkItem) => ({
+            id: bookmark.bookmark_id,
+            content: bookmark.content,
+            type: bookmark.type,
+            title: bookmark.title,
+            url: bookmark.url,
+            folderId: bookmark.folder_id,
+            createdAt: new Date(bookmark.created_at),
+            folderName: bookmark.folder_name,
+          })
+        );
+        setBookmarks(updatedBookmarks);
+      }
+
+      if (selectedFolderId === id) {
+        const remainingFolders = folders.filter((f) => f.id !== id);
+        setSelectedFolderId(remainingFolders[0]?.id || "");
+      }
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+    }
+  };
+
+  const selectFolderByNumber = useCallback(
+    (number: number) => {
+      const folderIndex = number - 1;
+      if (folderIndex >= 0 && folderIndex < folders.length) {
+        setSelectedFolderId(folders[folderIndex].id);
+        setSelectedBookmarkIndex(0);
+        setIsFolderDropdownOpen(false);
+      }
+    },
+    [folders]
+  );
+
+  const exportBookmarks = async () => {
+    try {
+      const result = await apiClient.exportData();
+      if (result.error) {
+        console.error("Error exporting data:", result.error);
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(result.data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bookmarks-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting bookmarks:", error);
+    }
   };
 
   const importBookmarks = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,28 +485,76 @@ export default function BookmarkManager() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target?.result as string);
+
         if (data.folders && data.bookmarks) {
-          const importedFolders = data.folders.map((folder: FolderItem) => ({
-            ...folder,
-            createdAt: new Date(folder.createdAt),
-          }));
-          const importedBookmarks = data.bookmarks.map(
-            (bookmark: BookmarkItem) => ({
-              ...bookmark,
-              createdAt: new Date(bookmark.createdAt),
-            })
-          );
-          setFolders(importedFolders);
-          setBookmarks(importedBookmarks);
-          if (importedFolders.length > 0) {
-            setSelectedFolderId(importedFolders[0].id);
+          const result = await apiClient.importData({
+            folders: data.folders,
+            bookmarks: data.bookmarks,
+            replaceExisting: confirm(
+              "Replace all existing bookmarks? Click Cancel to merge with existing data."
+            ),
+          });
+
+          if (result.error) {
+            console.error("Import failed:", result.error);
+            alert("Import failed: " + result.error);
+            return;
           }
+
+          console.log("Import successful:", result.data?.stats);
+
+          // Reload data after import
+          const [foldersResult, bookmarksResult] = await Promise.all([
+            apiClient.getFolders(),
+            apiClient.getBookmarks(),
+          ]);
+
+          if (foldersResult.data) {
+            const folders = foldersResult.data.map((folder: ApiFolderItem) => ({
+              id: folder.folder_id,
+              name: folder.name,
+              createdAt: new Date(folder.created_at),
+              bookmarkCount: folder.bookmark_count || 0,
+            }));
+            setFolders(folders);
+            if (folders.length > 0) {
+              setSelectedFolderId(folders[0].id);
+            }
+          }
+
+          if (bookmarksResult.data) {
+            const bookmarks = bookmarksResult.data.map(
+              (bookmark: ApiBookmarkItem) => ({
+                id: bookmark.bookmark_id,
+                content: bookmark.content,
+                type: bookmark.type,
+                title: bookmark.title,
+                url: bookmark.url,
+                folderId: bookmark.folder_id,
+                createdAt: new Date(bookmark.created_at),
+                folderName: bookmark.folder_name,
+              })
+            );
+            setBookmarks(bookmarks);
+          }
+
+          alert(
+            `Import completed!\nFolders: ${result.data?.stats.foldersImported} imported, ${result.data?.stats.foldersSkipped} skipped\nBookmarks: ${result.data?.stats.bookmarksImported} imported, ${result.data?.stats.bookmarksSkipped} skipped`
+          );
+        } else {
+          alert(
+            "Invalid file format. Please select a valid bookmark export file."
+          );
         }
       } catch (error) {
         console.error("Failed to import bookmarks:", error);
+        alert(
+          "Failed to import bookmarks: " +
+            (error instanceof Error ? error.message : "Unknown error")
+        );
       }
     };
     reader.readAsText(file);
@@ -507,9 +704,10 @@ export default function BookmarkManager() {
     [
       selectedBookmarkIndex,
       filteredBookmarks,
-      folders,
       searchQuery,
       newItemContent,
+      deleteBookmark,
+      selectFolderByNumber,
     ]
   );
 
@@ -587,10 +785,9 @@ export default function BookmarkManager() {
                     variant="secondary"
                     className="ml-2 bg-zinc-800 text-zinc-300"
                   >
-                    {
+                    {currentFolder?.bookmarkCount ??
                       bookmarks.filter((b) => b.folderId === selectedFolderId)
-                        .length
-                    }
+                        .length}
                   </Badge>
                 </Button>
               </DropdownMenuTrigger>
@@ -622,12 +819,11 @@ export default function BookmarkManager() {
                         variant="secondary"
                         className="bg-zinc-800 text-zinc-300"
                       >
-                        {
+                        {folder.bookmarkCount ??
                           bookmarks.filter((b) => b.folderId === folder.id)
-                            .length
-                        }
+                            .length}
                       </Badge>
-                      {folder.id !== "default" && (
+                      {!folder.id.startsWith("default-") && (
                         <Button
                           size="sm"
                           variant="ghost"
